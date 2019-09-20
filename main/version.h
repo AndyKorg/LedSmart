@@ -1,0 +1,28 @@
+/*
+ * version.h
+ *
+ *  Created on: 1 сент. 2019 г.
+ *      Author: Administrator
+ */
+
+#ifndef MAIN_VERSION_H_
+#define MAIN_VERSION_H_
+
+#include <stdint.h>
+
+#define VERSION_DELEMITER		'.'
+#define VERSION_MAX_DIGIT		6 //+ null symbol
+
+#define VERSION_PART_COUNT		4
+#define VERSION_MAJOR			0
+#define VERSION_MINOR			1
+#define VERSION_PATCH			2
+#define VERSION_BUILD			3
+
+typedef struct {
+    uint16_t part[VERSION_PART_COUNT]; //major.minor.patch.build
+} version_app_t;
+
+extern const version_app_t VERSION_APPLICATION;
+
+#endif /* MAIN_VERSION_H_ */
