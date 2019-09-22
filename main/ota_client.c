@@ -352,43 +352,6 @@ static esp_err_t getVersionFile(char **version, uint8_t md5[MD5_LEN]){
     return ret;
 }
 
-static bool checkNumberVersionPart(char *prevPtr, char *ptr, const uint8_t versionPart){
-
-	char tmp[VERSION_MAX_DIGIT] = {'\0'};
-	uint8_t i=0;
-
-	for(;(prevPtr != ptr) && (i<=VERSION_MAX_DIGIT); prevPtr++){
-		tmp[i] = *prevPtr;
-		}
-	tmp[i+1] = '\0';
-	ESP_LOGI(TAG, "check i=%d cur=%d check = %d", versionPart, VERSION_APPLICATION.part[versionPart], atoi(tmp));
-	return VERSION_APPLICATION.part[versionPart] < atoi(tmp);
-}
-/*
- * Определяет необходимость обновления
- */
-static bool needUpdate(char *version){
-	bool ret = false;
-
-	if (version){
-		char *prevptr = version, *endptr = (version + strlen(version));
-
-		uint8_t countPart = 0;
-		for (char *ptr = strchr(version, '.'); ptr && (countPart < VERSION_PART_COUNT); ptr = strchr(++ptr, '.')){
-			ret = checkNumberVersionPart(prevptr, ptr, countPart);
-			if (ret){
-				break;
-			}
-			countPart++;
-			prevptr = ptr+1;
-		}
-		if ((!ret) && (prevptr <  endptr) && (countPart < VERSION_PART_COUNT)){//Последняя часть номера версии
-			ret = checkNumberVersionPart(prevptr, endptr, countPart);
-		}
-	}
-	return ret;
-}
-
 void ota_check(void){
 
 	const esp_partition_t *configured = esp_ota_get_boot_partition();

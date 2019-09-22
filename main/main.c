@@ -40,9 +40,9 @@ static const char *TAG = "LED";
 #define LED_NUM			GPIO_NUM_5
 #define LED_ON			0
 #define LED_OFF			1
-#define LedSwitch(x, y, state)	do{ gpio_set_level(LED_NUM, x); y = state;} while (0)
-#define LedOn(x)		LedSwitch(LED_ON, x, true)
-#define LedOff(x)		LedSwitch(LED_OFF, x, false)
+#define LedSwitch(x)	do{ gpio_set_level(LED_NUM, x);} while (0)
+#define LedOn()			LedSwitch(LED_ON)
+#define LedOff()		LedSwitch(LED_OFF)
 
 #define LED_PERIOD_S	60
 
@@ -64,13 +64,12 @@ void led_control(void *pvParameters){
 	const TickType_t 	ledPeriodOn = (LED_PERIOD_S*1000)/portTICK_PERIOD_MS,
 						ledPeiodAP = (250/portTICK_PERIOD_MS);
 	int	signal_off = 0;
-	bool ledIsOn = 0;
 
 	while(1){
 		if (wifi_AP_isOn()){
-			LedOn(ledIsOn);
+			LedOn();
 			vTaskDelay(ledPeiodAP);
-			LedOff(ledIsOn);
+			LedOff();
 			vTaskDelay(ledPeiodAP);
 			ESP_LOGI(TAG, "AP led");
 		}
@@ -80,8 +79,8 @@ void led_control(void *pvParameters){
 			}
 			if (startDelay){
 				startDelay--;
-				LedOn(ledIsOn);
-				led_send_status(ledIsOn);
+				LedOn();
+				led_send_status(true);
 				signal_off = 0;
 				ESP_LOGI(TAG, "On led door");
 				vTaskDelay(ledPeriodOn);
@@ -91,8 +90,8 @@ void led_control(void *pvParameters){
 					signal_off = 1;
 					ESP_LOGI(TAG, "Led door off");
 				}
-				LedOff(ledIsOn);
-				led_send_status(ledIsOn);
+				LedOff();
+				led_send_status(false);
 			}
 		}
 	}
@@ -179,8 +178,7 @@ void app_main()
     io_conf.pull_up_en = 0;
     gpio_config(&io_conf);
 
-    uint8_t tmp;
-    LedOff(tmp);
+    LedOff();
 
     ota_init();
     wifi_init_param();
