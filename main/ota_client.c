@@ -29,15 +29,11 @@
 #include "esp_md5.h"
 
 #include "version.h"
-#include "params.h"
 #include "utils.h"
 
 static const char *TAG = "OTA:";
 
-#define DOWNLOAD_SERVER_IP		"192.168.177.233"
 #define DOWNLOAD_SERVER_PORT	"80"
-#define DOWNLOAD_FILENAME		"ledsmart"	//wiwthout extension
-#define APP_FILE_NAME_BIN		"app"		//префикс прошивки
 #define EXT_FILE_NAME_VER		"txt"		//–асширение дл€ файла описани€ прошивки
 #define EXT_FILE_NAME_BIN		"bin"		//дл€ самой прошивки
 
@@ -57,12 +53,13 @@ const char *GET_FORMAT =
 
 static int socket_id = -1;
 
-static char* response_ota;
-static char* ota_write_data;
+static char	*response_ota;
+static char *ota_write_data;
+ota_param_t ota_param;
 
-static bool connect_to_http_server()
+static bool connect_to_http_server(void)
 {
-    ESP_LOGI(TAG, "Server IP: %s Server Port:%s", DOWNLOAD_SERVER_IP, DOWNLOAD_SERVER_PORT);
+    ESP_LOGI(TAG, "Server IP: %s Server Port:%s", ota_param.server_ip, DOWNLOAD_SERVER_PORT);
 
     int  http_connect_flag = -1;
     struct sockaddr_in sock_info;
@@ -76,7 +73,7 @@ static bool connect_to_http_server()
     // set connect info
     memset(&sock_info, 0, sizeof(struct sockaddr_in));
     sock_info.sin_family = AF_INET;
-    sock_info.sin_addr.s_addr = inet_addr(DOWNLOAD_SERVER_IP);
+    sock_info.sin_addr.s_addr = inet_addr(ota_param.server_ip);
     sock_info.sin_port = htons(atoi(DOWNLOAD_SERVER_PORT));
 
     // connect to http server
@@ -146,7 +143,7 @@ static esp_err_t getFile(char *filename, char *response, uint32_t *lenResponse){
     esp_err_t ret = ESP_ERR_NOT_FOUND;
 
 	char *http_request = NULL;
-    int get_len = asprintf(&http_request, GET_FORMAT, filename, DOWNLOAD_SERVER_IP, DOWNLOAD_SERVER_PORT);
+    int get_len = asprintf(&http_request, GET_FORMAT, filename, ota_param.server_ip, DOWNLOAD_SERVER_PORT);
     if (get_len < 0) {
         ESP_LOGE(TAG, "Failed to allocate memory for GET request buffer");
 
@@ -175,7 +172,7 @@ static uint8_t getFileNameVer(char **fileName,  char* typeFile){
     return asprintf(fileName, "%s.%s", DOWNLOAD_FILENAME, typeFile);
 }
 
-//”дал€ю вручную т.к. esp_ota_begin падает на бльшом разделе
+//”дал€ю вручную т.к. esp_ota_begin падает на большом разделе
 inline static esp_err_t clearPartition(const esp_partition_t *partition){
 
 	uint32_t sectorCount = partition->size/SPI_FLASH_SEC_SIZE;
@@ -247,14 +244,6 @@ static esp_err_t getUpdateFile(const esp_partition_t* partition, const uint8_t m
 											taskYIELD();//ќб€зательно надо дать другим поработать!
 										}
 										ret = esp_ota_end(update_handle);
-										esp_image_metadata_t data;
-										const esp_partition_pos_t part_pos = {
-												  .offset = partition->address,
-												  .size = partition->size,
-												};
-										ret = esp_image_load(ESP_IMAGE_VERIFY, &part_pos, &data);
-										ESP_LOGE(TAG, "verify ret = %x", ret);
-										ESP_LOGI(TAG, "ota write end readLen = %d ret = %x", readLen, ret);
 									}
 								}
 							}
@@ -402,7 +391,7 @@ static bool needUpdate(char *version){
 
 void ota_check(void){
 
-    const esp_partition_t *configured = esp_ota_get_boot_partition();
+	const esp_partition_t *configured = esp_ota_get_boot_partition();
     if (!configured){
         ESP_LOGW(TAG, "Configured OTA boot partition is null");
         return;
@@ -430,6 +419,11 @@ void ota_check(void){
         return;
     }
 
+    if (strlen(ota_param.server_ip) == 0){
+        ESP_LOGW(TAG, "Config OTA is null");
+        return;
+    }
+
     uint8_t md5Need[MD5_LEN];
     char* version = NULL;
 
@@ -446,4 +440,10 @@ void ota_check(void){
     	}
     }
     free(version);
+}
+
+void ota_init(void){
+	uint8_t i = 0;
+	for (; i<IP4ADDR_STRLEN_MAX+1; i++)
+		ota_param.server_ip[i] = 0;
 }

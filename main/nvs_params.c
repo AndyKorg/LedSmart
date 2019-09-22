@@ -13,7 +13,7 @@
 #include "nvs_flash.h"
 #include "nvs.h"
 
-#define STORAGE_PARAM			"strge"		//имя хранилища для параметров wifi
+#define STORAGE_PARAM			"strge"		//имя хранилища для параметров
 
 #undef __ESP_FILE__
 #define __ESP_FILE__			NULL 		//Нет имен ошибок
@@ -128,4 +128,33 @@ esp_err_t save_cay_param(cayenne_t* value){
     }
   }
   return ESP_ERR_INVALID_SIZE;
+}
+
+esp_err_t read_ota_param(ota_param_t *value){
+	esp_err_t ret = ESP_ERR_NOT_FOUND;
+	if (value){
+	    size_t size = 17;
+	    nvs_handle my_handle;
+
+	    ret = nvs_open(STORAGE_PARAM, NVS_READONLY, &my_handle);
+	    if (ret == ESP_OK){
+	    	ret = nvs_get_str(my_handle, PARAM_OTA_IP, value->server_ip, &size);
+			ESP_LOGI(TAG, "ota ip read = %s", (char*) value->server_ip);
+	    }
+	    nvs_close(my_handle);
+	  }
+	  return ret;
+}
+esp_err_t save_ota_param(ota_param_t *value){
+	  if (value){
+	    nvs_handle my_handle;
+	    if (nvs_open(STORAGE_PARAM, NVS_READWRITE, &my_handle) == ESP_OK) {
+	      ESP_ERROR_CHECK(nvs_set_str(my_handle, PARAM_OTA_IP, value->server_ip));
+	      ESP_ERROR_CHECK(nvs_commit(my_handle));
+	      nvs_close(my_handle);
+	      ESP_LOGI(TAG, "ota ip write = %s", (char*) value->server_ip);
+	      return ESP_OK;
+	    }
+	  }
+	  return ESP_ERR_INVALID_SIZE;
 }

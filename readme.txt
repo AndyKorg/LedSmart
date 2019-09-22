@@ -1,5 +1,5 @@
 save http page to MK:
-python F:/esp8266/esp8266_rtos_sdk/components/esptool_py/esptool/esptool.py --chip esp8266 --port "COM4" --baud 230400 --before "default_reset" --after "hard_reset" write_flash -z 0x1f0000 F:\esp8266\LedSmart\WebBin\web.bin
+python F:/esp8266/esp8266_rtos_sdk/components/esptool_py/esptool/esptool.py --chip esp8266 --port "COM4" --baud 230400 --before "default_reset" --after "hard_reset" write_flash -z 0x200000 F:\esp8266\LedSmart\WebBin\web.bin
 
 get hash md5
 certutil -hashfile F:\esp8266\LedSmart\build\ledsmart.bin md5 >> F:\esp8266\LedSmart\ledsmart.md5

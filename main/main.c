@@ -11,6 +11,7 @@
 #include "sdkconfig.h"
 #include "wifi.h"
 #include "cayenne.h"
+#include "ota_client.h"
 #include "params.h"
 
 #undef __ESP_FILE__
@@ -37,15 +38,25 @@ static const char *TAG = "LED";
 
 #define LED				GPIO_Pin_5
 #define LED_NUM			GPIO_NUM_5
-#define LED_ON			1
-#define LED_OFF			0
-#define LedSwitch(x)	do{ gpio_set_level(LED_NUM, x);} while (0)
-#define LedOn()			LedSwitch(LED_ON)
-#define LedOff()		LedSwitch(LED_OFF)
+#define LED_ON			0
+#define LED_OFF			1
+#define LedSwitch(x, y, state)	do{ gpio_set_level(LED_NUM, x); y = state;} while (0)
+#define LedOn(x)		LedSwitch(LED_ON, x, true)
+#define LedOff(x)		LedSwitch(LED_OFF, x, false)
+
 #define LED_PERIOD_S	60
 
 xSemaphoreHandle ledState;
 TaskHandle_t ledHandleTask;
+
+void led_send_status(bool led_on){
+	static bool prevLedState;
+	if (led_on != prevLedState){
+		CayenneChangeInteger(&cayenn_cfg, PARAM_CHANAL_LED_STATE, PARAM_NAME_LED_STATE, led_on);
+		CayenneUpdateActuator(&cayenn_cfg, PARAM_CHANAL_LED_UPDATE, led_on);
+		prevLedState = led_on;
+	}
+}
 
 void led_control(void *pvParameters){
 
@@ -53,37 +64,35 @@ void led_control(void *pvParameters){
 	const TickType_t 	ledPeriodOn = (LED_PERIOD_S*1000)/portTICK_PERIOD_MS,
 						ledPeiodAP = (250/portTICK_PERIOD_MS);
 	int	signal_off = 0;
+	bool ledIsOn = 0;
 
 	while(1){
 		if (wifi_AP_isOn()){
-			LedOn();
+			LedOn(ledIsOn);
 			vTaskDelay(ledPeiodAP);
-			LedOff();
+			LedOff(ledIsOn);
 			vTaskDelay(ledPeiodAP);
 			ESP_LOGI(TAG, "AP led");
 		}
 		else{
-			if (xSemaphoreTake(ledState, 0) == pdTRUE){
+			if (xSemaphoreTake(ledState, 0) == pdTRUE){//no white
 				startDelay++;
 			}
 			if (startDelay){
 				startDelay--;
-				LedOn();
-				CayenneChangeInteger(&cayenn_cfg, PARAM_CHANAL_LED_STATE, PARAM_NAME_LED_STATE, LED_ON);
+				LedOn(ledIsOn);
+				led_send_status(ledIsOn);
 				signal_off = 0;
 				ESP_LOGI(TAG, "On led door");
 				vTaskDelay(ledPeriodOn);
-				ESP_LOGI(TAG, "On led startDelay = %d", startDelay);
-				CayenneUpdateActuator(&cayenn_cfg, PARAM_CHANAL_LED_UPDATE, LED_ON);
 			}
 			else{
 				if (signal_off == 0){
-					CayenneChangeInteger(&cayenn_cfg, PARAM_CHANAL_LED_STATE, PARAM_NAME_LED_STATE, LED_OFF);
 					signal_off = 1;
 					ESP_LOGI(TAG, "Led door off");
-					CayenneUpdateActuator(&cayenn_cfg, PARAM_CHANAL_LED_UPDATE, LED_OFF);
 				}
-				LedOff();
+				LedOff(ledIsOn);
+				led_send_status(ledIsOn);
 			}
 		}
 	}
@@ -170,8 +179,10 @@ void app_main()
     io_conf.pull_up_en = 0;
     gpio_config(&io_conf);
 
-    LedOff();
+    uint8_t tmp;
+    LedOff(tmp);
 
+    ota_init();
     wifi_init_param();
     Cayenne_Init();
 

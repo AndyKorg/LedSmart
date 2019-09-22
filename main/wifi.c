@@ -6,9 +6,12 @@
  */
 
 #include <string.h>
+#include "esp_err.h"
 #include "wifi.h"
 #include "esp_wifi.h"
 #include "rom/ets_sys.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include "freertos/event_groups.h"
 #include "sdkconfig.h"
 #include "esp_log.h"
@@ -29,7 +32,9 @@ static EventGroupHandle_t wifi_event_group;
 const int WIFI_PROCESS_BIT = BIT0,			//Wifi запущен
 	  WIFI_PROCESS_AP_BIT = BIT1,			//Режим AP включен, дейстивтельно если WIFI_PROCESS_BIT = 1
 	  TCP_INIT = BIT2,						//TCP адаптер инициализирован
-	  CLIENT_CONNECTED = BIT3;				//Есть подклченные клиенты
+	  CLIENT_CONNECTED = BIT3,				//Есть подключенные клиенты
+	  WIFI_GOT_IP_BIT = BIT4;				//Есть подключение к сети
+
 
 static const char *TAG = "WIFI";
 
@@ -38,7 +43,6 @@ wifi_sta_config_t wifi_sta_param;
 static esp_err_t event_handler(void *ctx, system_event_t *event)
 {
   httpd_handle_t *server = (httpd_handle_t *) ctx;
-  ESP_LOGI(TAG, "event %d", event->event_id);
   static uint8_t ap_sta_connect_count = 0;		//счетчик подключенных клиентов в режиме AP
 
   switch(event->event_id) {
@@ -48,7 +52,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         break;
     case SYSTEM_EVENT_STA_STOP:
         esp_wifi_connect();
-        xEventGroupClearBits(wifi_event_group, WIFI_PROCESS_BIT);
+        xEventGroupClearBits(wifi_event_group, WIFI_PROCESS_BIT | WIFI_GOT_IP_BIT);
         break;
     case SYSTEM_EVENT_STA_GOT_IP:
         ESP_LOGI(TAG, "got ip:%s",
@@ -57,7 +61,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         if (*server == NULL) {
             *server = start_webserver();
         }
-		ota_check();
+		xEventGroupSetBits(wifi_event_group, WIFI_GOT_IP_BIT);
         break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
         esp_wifi_connect();
@@ -100,18 +104,17 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
     return ESP_OK;
 }
 
-uint8_t wifi_isOn(){
-  return (xEventGroupGetBitsFromISR(wifi_event_group) & WIFI_PROCESS_BIT)?1:0;
+bool wifi_isOn(){
+  return (xEventGroupGetBitsFromISR(wifi_event_group) & WIFI_PROCESS_BIT);
 }
 
-uint8_t wifi_AP_isOn(){
-  return (xEventGroupGetBitsFromISR(wifi_event_group) & WIFI_PROCESS_AP_BIT)?1:0;
+bool wifi_AP_isOn(){
+  return (xEventGroupGetBitsFromISR(wifi_event_group) & WIFI_PROCESS_AP_BIT);
 }
 
-uint8_t wifi_ap_count_client(){
-	return (xEventGroupGetBitsFromISR(wifi_event_group) & CLIENT_CONNECTED)?1:0;
+bool wifi_ap_count_client(){
+	return (xEventGroupGetBitsFromISR(wifi_event_group) & CLIENT_CONNECTED);
 }
-
 
 void wifi_init(wifi_mode_t mode)
 {
@@ -149,16 +152,38 @@ void wifi_init(wifi_mode_t mode)
   ESP_ERROR_CHECK(esp_wifi_start() );
 }
 
+void task_ota_check(void *pvParameters){
+
+	const TickType_t oneMinute = (60*1000)/portTICK_PERIOD_MS; //one minute
+	uint32_t count_period = 0;
+
+	while(1){
+		if (count_period == 0){
+			if (xEventGroupGetBitsFromISR(wifi_event_group) & WIFI_GOT_IP_BIT) {
+				ESP_LOGI(TAG, "ota check");
+				ota_check();
+				count_period = OTA_CHECK_PERIOD_MIN+1;
+			}
+		}
+		else{
+			count_period--;
+		}
+		vTaskDelay(oneMinute);
+	}
+}
+
 void wifi_init_param(void){
 
- wifi_event_group = xEventGroupCreate();
+	wifi_event_group = xEventGroupCreate();
 
- wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
- ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+	wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+	ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
- ESP_ERROR_CHECK(esp_event_loop_init(event_handler, &http_server) );
- xEventGroupClearBits(wifi_event_group, WIFI_PROCESS_AP_BIT | WIFI_PROCESS_BIT);
- xEventGroupClearBits(wifi_event_group, CLIENT_CONNECTED);
+	ESP_ERROR_CHECK(esp_event_loop_init(event_handler, &http_server) );
+	xEventGroupClearBits(wifi_event_group, WIFI_PROCESS_AP_BIT | WIFI_PROCESS_BIT | WIFI_GOT_IP_BIT | CLIENT_CONNECTED);
 
- read_wifi_param(&wifi_sta_param);
+	read_wifi_param(&wifi_sta_param);
+	read_ota_param(&ota_param);
+
+	xTaskCreate(task_ota_check, "ota_check", 4096, ( void * ) 1, 0, NULL);
 }

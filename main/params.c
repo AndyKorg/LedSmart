@@ -8,15 +8,13 @@
 #include "nvs_params.h"
 #include "wifi.h"
 #include "cayenne.h"
+#include "ota_client.h"
 #include "esp_err.h"
 
 #undef __ESP_FILE__
 #define __ESP_FILE__	NULL
 
-
 static const char *TAG = "PRMS";
-
-watercount_t	watercount;			//Собственно сами показания счетчика
 
 esp_err_t getFirstVarName(seechRecord_t* sr){
   if (sr){
@@ -32,44 +30,48 @@ char* getNextVarName(seechRecord_t* sr){
     if (sr){
       (sr->pos)++;
       switch(sr->pos){
-	case PARAM_SSID_NAME_NUM:
-	  ret = STA_PARAM_SSID_NAME;
-	  sr->paramType = PARAM_TYPE_WIFI;
-	  break;
-	case PARAM_PASWRD_NUM:
-	  ret = STA_PARAM_PASWRD_NAME;
-	  sr->paramType = PARAM_TYPE_WIFI;
-	  break;
-	case PARAM_MQTT_HOST_NUM:
-	  ret = PARAM_MQTT_HOST;
-	  sr->paramType = PARAM_TYPE_CAEN;
-	  break;
-	case PARAM_MQTT_PORT_NUM:
-	  ret = PARAM_MQTT_PORT;
-	  sr->paramType = PARAM_TYPE_CAEN;
-	  break;
-	case PARAM_MQTT_USER_NUM:
-	  ret = PARAM_MQTT_USER;
-	  sr->paramType = PARAM_TYPE_CAEN;
-	  break;
-	case PARAM_MQTT_PASS_NUM:
-	  ret = PARAM_MQTT_PASS;
-	  sr->paramType = PARAM_TYPE_CAEN;
-	  break;
-	case PARAM_MQTT_CLIENT_ID_NUM:
-	  ret = PARAM_MQTT_CLIENT_ID;
-	  sr->paramType = PARAM_TYPE_CAEN;
-	  break;
-	case PARAM_MQTT_MODEL_NAME_NUM:
-	  ret = PARAM_MQTT_MODEL_NAME;
-	  sr->paramType = PARAM_TYPE_CAEN;
-	  break;
-	/*case PARAM_WATERCOUNT_NUM:
-	  ret = PARAM_WATERCOUNT;
-	  sr->paramType = PARAM_TYPE_NONE;
-	  break;*/
-	default:
-	  break;
+		case PARAM_SSID_NAME_NUM:
+			ret = STA_PARAM_SSID_NAME;
+			sr->paramType = PARAM_TYPE_WIFI;
+			break;
+		case PARAM_PASWRD_NUM:
+			ret = STA_PARAM_PASWRD_NAME;
+			sr->paramType = PARAM_TYPE_WIFI;
+			break;
+		case PARAM_MQTT_HOST_NUM:
+			ret = PARAM_MQTT_HOST;
+			sr->paramType = PARAM_TYPE_CAEN;
+			break;
+		case PARAM_MQTT_PORT_NUM:
+			ret = PARAM_MQTT_PORT;
+			sr->paramType = PARAM_TYPE_CAEN;
+			break;
+		case PARAM_MQTT_USER_NUM:
+			ret = PARAM_MQTT_USER;
+			sr->paramType = PARAM_TYPE_CAEN;
+			break;
+		case PARAM_MQTT_PASS_NUM:
+			ret = PARAM_MQTT_PASS;
+			sr->paramType = PARAM_TYPE_CAEN;
+			break;
+		case PARAM_MQTT_CLIENT_ID_NUM:
+			ret = PARAM_MQTT_CLIENT_ID;
+			sr->paramType = PARAM_TYPE_CAEN;
+			break;
+		case PARAM_MQTT_MODEL_NAME_NUM:
+			ret = PARAM_MQTT_MODEL_NAME;
+			sr->paramType = PARAM_TYPE_CAEN;
+			break;
+		case PARAM_APP_VER:
+			ret = "";
+			sr->paramType = PARAM_TYPE_NONE;
+			break;
+		case PARAM_OTA_SERVER_IP:
+			ret = PARAM_OTA_IP;
+			sr->paramType = PARAM_TYPE_OTA;
+			break;
+		default:
+		  break;
       }
     }
   return ret;
@@ -112,21 +114,18 @@ char* putsValue(char* toStr, char* varName, size_t *lenVal){
   else if ( !strcmp(varName, PARAM_MQTT_MODEL_NAME)){
     value = cayenn_cfg.deviceName;
   }
+  else if ( !strcmp(varName, PARAM_OTA_IP)){
+	 value = ota_param.server_ip;
+  }
   else if( !strcmp(varName, PARAM_NAME_VERSION) ){
-	  asprintf(value, "%d.%d.%d.%d",
+	  asprintf(&value, "%d.%d.%d.%d",
 			  VERSION_APPLICATION.part[VERSION_MAJOR],
 			  VERSION_APPLICATION.part[VERSION_MINOR],
 			  VERSION_APPLICATION.part[VERSION_PATCH],
 			  VERSION_APPLICATION.part[VERSION_BUILD]
 	  	  );
   }
-  /*else if ( !strcmp(varName, PARAM_WATERCOUNT)){
-    value = calloc(20, sizeof(char));
-    if (value){
-      value = itoa(watercount.count, value, 10);
-      needFree = 1;
-    }
-  }*/
+
   if (value){
     strncpy(toStr, value, strlen(value));
     ESP_LOGI(TAG, "val = %s", value);

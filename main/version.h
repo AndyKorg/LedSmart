@@ -10,6 +10,11 @@
 
 #include <stdint.h>
 
+#define VERSION_MAJOR_NUM		0
+#define VERSION_MINOR_NUM		0
+#define VERSION_PATCH_NUM		0
+#define VERSION_BUILD_NUM		9
+
 #define VERSION_DELEMITER		'.'
 #define VERSION_MAX_DIGIT		6 //+ null symbol
 

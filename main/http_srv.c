@@ -120,7 +120,7 @@ esp_err_t parse_query(httpd_req_t *req)
   char* varName;
   esp_err_t resultSave = ESP_OK;
 
-  uint8_t wifi_save = 0, cayenn_save = 0;
+  bool wifi_save = false, cayenn_save = false, ota_save = false;
 
   while (remaining > 0) {
     /* Read the data for the request */
@@ -136,43 +136,43 @@ esp_err_t parse_query(httpd_req_t *req)
     }
     ESP_LOGI(TAG, "buf query = %s", buf);
     if (getFirstVarName(&sr) == ESP_OK){
-      do{
-	varName = getNextVarName(&sr);
-	ESP_LOGI(TAG, "check = %s", varName);
-	if (varName == NULL)
-	  break;
-	if (httpd_query_key_value(buf, varName, value, VALUE_MAX_LEN) == ESP_OK){
-	  ESP_LOGI(TAG, "varName = %s", varName);
-	  if (sr.paramType == PARAM_TYPE_WIFI){
-	    if(sr.pos == PARAM_SSID_NAME_NUM)
-	      strcpy((char*) wifi_sta_param.ssid, value);
-	    else if (sr.pos == PARAM_PASWRD_NUM)
-	      strcpy((char*) wifi_sta_param.password, value);
-	    wifi_save = 1;
-	  }
-	  else if ((sr.paramType == PARAM_TYPE_CAEN) && (strlen(value) <= CAYENN_MAX_LEN)){
-	    if (sr.pos == PARAM_MQTT_HOST_NUM)
-	      strcpy(cayenn_cfg.host, value);
-	    else if (sr.pos == PARAM_MQTT_PORT_NUM)
-	      cayenn_cfg.port = atoi(value);
-	    else if (sr.pos == PARAM_MQTT_USER_NUM)
-	      strcpy(cayenn_cfg.user, value);
-	    else if (sr.pos == PARAM_MQTT_PASS_NUM)
-	      strcpy(cayenn_cfg.pass, value);
-	    else if (sr.pos == PARAM_MQTT_CLIENT_ID_NUM)
-	      strcpy(cayenn_cfg.client_id, value);
-	    else if (sr.pos == PARAM_MQTT_MODEL_NAME_NUM)
-	      strcpy(cayenn_cfg.deviceName, value);
-	    cayenn_save = 1;
-	  }
-	  else if(sr.paramType == PARAM_TYPE_NONE){
-	    if (sr.pos == PARAM_WATERCOUNT_NUM){
-	      watercount.count = atoi(value);
-	      watercount.state = NO_READ_SPI;
-	    }
-	  }
-	}
-      } while(1);
+    	do{
+    	  varName = getNextVarName(&sr);
+    	  ESP_LOGI(TAG, "check = %s", varName);
+    	  if (varName == NULL)
+    		  break;
+    	  if (httpd_query_key_value(buf, varName, value, VALUE_MAX_LEN) == ESP_OK){
+    		  ESP_LOGI(TAG, "varName = %s", varName);
+    		  if (sr.paramType == PARAM_TYPE_WIFI){
+    			  if(sr.pos == PARAM_SSID_NAME_NUM)
+    				  strcpy((char*) wifi_sta_param.ssid, value);
+    			  else if (sr.pos == PARAM_PASWRD_NUM)
+    				  strcpy((char*) wifi_sta_param.password, value);
+    			  wifi_save = true;
+    		  }
+    		  else if ((sr.paramType == PARAM_TYPE_CAEN) && (strlen(value) <= CAYENN_MAX_LEN)){
+    			  if (sr.pos == PARAM_MQTT_HOST_NUM)
+    				  strcpy(cayenn_cfg.host, value);
+    			  else if (sr.pos == PARAM_MQTT_PORT_NUM)
+    				  cayenn_cfg.port = atoi(value);
+    			  else if (sr.pos == PARAM_MQTT_USER_NUM)
+    				  strcpy(cayenn_cfg.user, value);
+    			  else if (sr.pos == PARAM_MQTT_PASS_NUM)
+    				  strcpy(cayenn_cfg.pass, value);
+    			  else if (sr.pos == PARAM_MQTT_CLIENT_ID_NUM)
+    				  strcpy(cayenn_cfg.client_id, value);
+    			  else if (sr.pos == PARAM_MQTT_MODEL_NAME_NUM)
+    				  strcpy(cayenn_cfg.deviceName, value);
+    			  cayenn_save = true;
+    		  }
+    		  else if (sr.paramType == PARAM_TYPE_OTA){
+    			  strcpy(ota_param.server_ip, value);
+    			  ota_save = true;
+    		  }
+    		  else if(sr.paramType == PARAM_TYPE_NONE){
+    		  }
+    	  }
+    	} while(1);
     }
     remaining -= ret;
   }
@@ -180,6 +180,9 @@ esp_err_t parse_query(httpd_req_t *req)
     save_wifi_param(&wifi_sta_param);
   if (cayenn_save)
     save_cay_param(&cayenn_cfg);
+  if (ota_save){
+	  save_ota_param(&ota_param);
+  }
 
   free(buf);
   return resultSave;
@@ -250,45 +253,45 @@ httpd_handle_t start_webserver(void)
     httpd_uri_t *current_uriGet;
     char *uri;
 
-    my_fs = myfsInit();
-    if (my_fs){
-      // Start the httpd server
-      ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
-      if (httpd_start(&server, &config) == ESP_OK) {
-		// Set URI handlers
-		if (my_fs->count){
-		  ESP_LOGI(TAG, "Registering URI handlers");
-		  uriGetList = calloc(my_fs->count+1, sizeof(httpd_uri_t));
-		  if (uriGetList){
-			current_uriGet = uriGetList;
-			current_uriGet->uri = "/";
-			current_uriGet->method = HTTP_GET;
-			current_uriGet->user_ctx = (void*)"index.html";
-			current_uriGet->handler = get_page_handler;
-			ESP_LOGI(TAG, "Registering URI start");
-			httpd_register_uri_handler(server, current_uriGet);
-			for(i=0; i < my_fs->count; i++){
-			  current_uriGet++;
-			  uri = calloc(strlen(my_fs->files[i].FileName)+2, 1);
-			  if (uri){
-				*uri = '/';
-				strcat(uri, my_fs->files[i].FileName);
-				//Регистрация метода get для страницы
-				current_uriGet->method = HTTP_GET;
-				current_uriGet->user_ctx = (void*) uri+1;
-				current_uriGet->handler = get_page_handler;
-				current_uriGet->uri = uri;
-				httpd_register_uri_handler(server, current_uriGet);
-				//Регистрация метода post для страницы
-				current_uriGet->method = HTTP_POST;
-				httpd_register_uri_handler(server, current_uriGet);
-				ESP_LOGI(TAG, "Registering URI %s", current_uriGet->uri);
-			  }
-			}
-		  }
-		}
-		return server;
-      }
+    // Start the httpd server
+    ESP_LOGI(TAG, "Starting server on port: '%d'", config.server_port);
+    if (httpd_start(&server, &config) == ESP_OK) {
+    	// Set URI handlers
+    	my_fs = myfsInit();
+    	if (my_fs){
+    		if (my_fs->count){
+    			ESP_LOGI(TAG, "Registering URI handlers");
+    			uriGetList = calloc(my_fs->count+1, sizeof(httpd_uri_t));
+    			if (uriGetList){
+    				current_uriGet = uriGetList;
+    				current_uriGet->uri = "/";
+    				current_uriGet->method = HTTP_GET;
+    				current_uriGet->user_ctx = (void*)"index.html";
+    				current_uriGet->handler = get_page_handler;
+    				ESP_LOGI(TAG, "Registering URI start");
+    				httpd_register_uri_handler(server, current_uriGet);
+    				for(i=0; i < my_fs->count; i++){
+    					current_uriGet++;
+    					uri = calloc(strlen(my_fs->files[i].FileName)+2, 1);
+    					if (uri){
+    						*uri = '/';
+    						strcat(uri, my_fs->files[i].FileName);
+    						//Регистрация метода get для страницы
+    						current_uriGet->method = HTTP_GET;
+    						current_uriGet->user_ctx = (void*) uri+1;
+    						current_uriGet->handler = get_page_handler;
+    						current_uriGet->uri = uri;
+    						httpd_register_uri_handler(server, current_uriGet);
+    						//Регистрация метода post для страницы
+    						current_uriGet->method = HTTP_POST;
+    						httpd_register_uri_handler(server, current_uriGet);
+    						ESP_LOGI(TAG, "Registering URI %s", current_uriGet->uri);
+    					}
+    				}
+    			}
+    		}
+    		return server;
+    	}
     }
 
     ESP_LOGI(TAG, "Error starting server!");

@@ -209,36 +209,43 @@ esp_err_t Cayenne_event_handler (esp_mqtt_event_handle_t event) {
 }
 
 void Cayenne_app_start (void) {
-  if (read_cay_param(&cayenn_cfg) == ESP_OK){
+	if (read_cay_param(&cayenn_cfg) == ESP_OK){
 
-    char* tmp = CayenneTopic (&cayenn_cfg, MQTT_CAYENNE_TYPE_SYS_MODEL, NULL);
+		char* hostProtokol = calloc(CAYENN_MAX_LEN+strlen(MQTT_PROTOKOL)+1, sizeof(char));
+		strcpy(hostProtokol, MQTT_PROTOKOL);
+		strcat(hostProtokol, cayenn_cfg.host);
+		ESP_LOGE(TAG_MQTT, "h %s", hostProtokol);
 
-    char* hostProtokol = calloc(CAYENN_MAX_LEN+strlen(MQTT_PROTOKOL)+1, sizeof(char));
-    strcpy(hostProtokol, MQTT_PROTOKOL);
-    strcat(hostProtokol, cayenn_cfg.host);
-    ESP_LOGE(TAG_MQTT, "h %s", hostProtokol);
+		char* tmp = CayenneTopic (&cayenn_cfg, MQTT_CAYENNE_TYPE_SYS_MODEL, NULL);
 
-    esp_mqtt_client_config_t mqtt_cfg =
-      { .uri = hostProtokol, .port = cayenn_cfg.port,
-	  .username = cayenn_cfg.user, .password = cayenn_cfg.pass, .client_id = cayenn_cfg.client_id,
-	  .lwt_qos = 0, //Подтверждение доставки
-	  .lwt_topic = cayenn_cfg.deviceName,
-	  .lwt_msg = tmp,
-	  .lwt_msg_len = strlen ((const char*)tmp),
-	  .event_handle = Cayenne_event_handler,
-	  .transport = MQTT_TRANSPORT_OVER_TCP
-      // .user_context = (void *)your_context
-      };
+		esp_mqtt_client_config_t mqtt_cfg ={
+			.uri = hostProtokol, .port = cayenn_cfg.port,
+			.username = cayenn_cfg.user, .password = cayenn_cfg.pass, .client_id = cayenn_cfg.client_id,
+			.lwt_qos = 0, //Подтверждение доставки
+			.lwt_topic = cayenn_cfg.deviceName,
+			.lwt_msg = tmp,
+			.lwt_msg_len = strlen ((const char*)tmp),
+			.event_handle = Cayenne_event_handler,
+			.transport = MQTT_TRANSPORT_OVER_TCP
+			// .user_context = (void *)your_context
+		};
 
-    mqtt_client = esp_mqtt_client_init (&mqtt_cfg);
-    esp_mqtt_client_start (mqtt_client);
-    free (tmp);
-    free (hostProtokol);
-  }
+		mqtt_client = esp_mqtt_client_init (&mqtt_cfg);
+		if (mqtt_client){
+			ESP_LOGE(TAG_MQTT, "start client");
+			esp_mqtt_client_start (mqtt_client);
+		}
+		free (tmp);
+		free (hostProtokol);
+	}
 }
 
 esp_err_t Cayenne_app_stop (void){ //Оторвать все подключения, ESP_OK - закрытие соединения начато
-	return esp_mqtt_client_stop(mqtt_client);//TODO: отписку сделать
+	esp_err_t ret = ESP_OK;
+	if (mqtt_client){
+		ret = esp_mqtt_client_stop(mqtt_client);//TODO: отписку сделать
+	}
+	return ret;
 }
 
 esp_err_t Cayenne_Init (void) {

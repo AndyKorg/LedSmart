@@ -1,5 +1,5 @@
 /*
- * Обработка всех известных переменных в виде списка или по имени
+ * Обработка всех известных html-переменных в виде списка или по имени
  * Конвертирование в строки и обратно.
  */
 
@@ -10,12 +10,15 @@
 #include "esp_err.h"
 #include "version.h"
 
+//define method save
 enum paramType_t{
-  PARAM_TYPE_NONE = -1,	//Параметр не отностится ни к одной группе и не сохраняется во flash
+  PARAM_TYPE_NONE = -1,	//no save to nvs
   PARAM_TYPE_WIFI = 0,
-  PARAM_TYPE_CAEN = 1
+  PARAM_TYPE_CAEN = 1,
+  PARAM_TYPE_OTA = 2
 };
 
+//params possible
 enum param_Num_t{
   PARAM_SSID_NAME_NUM = 0,
   PARAM_PASWRD_NUM,
@@ -25,29 +28,17 @@ enum param_Num_t{
   PARAM_MQTT_PASS_NUM,
   PARAM_MQTT_CLIENT_ID_NUM,
   PARAM_MQTT_MODEL_NAME_NUM,
-  PARAM_WATERCOUNT_NUM,
-  PARAM_APP_VER								//Версия приложения в виде стоки
+  PARAM_APP_VER,							//Версия приложения в виде строки
+  PARAM_OTA_SERVER_IP						//IP http сервера с обновлением прошивки, порт всегда 80
 };
 
-#define	PARAM_CHANAL_CAYEN		0			//Номер канала обслуживающий переменную, определяется облаком cayenn
-#define PARAM_NAME_SENSOR		"Door"		//Имя сенсора для облака
-#define PARAM_CHANAL_LED_STATE	1			//Канал статуса светодиода
-#define PARAM_NAME_LED_STATE	"led"
-#define PARAM_CHANAL_LED_UPDATE	3			//управления
-#define PARAM_NAME_LED_UPDATE	"LedUpdate"
-#define PARAM_NAME_VERSION		"version"	//Версия приложения
-
-typedef enum{
-  READ_SPI,
-  NO_READ_SPI
-} watercount_state_t;
-
-typedef struct{
-  uint32_t		count;					//Собственно сами показания счетчика
-  watercount_state_t 	state;			//прочитано через SPI
-} watercount_t;
-
-extern watercount_t watercount;			//Собственно сами показания счетчика
+#define	PARAM_CHANAL_CAYEN			0				//Номер канала обслуживающий переменную, определяется облаком cayenn
+#define PARAM_NAME_SENSOR			"Door"			//Имя сенсора для облака
+#define PARAM_CHANAL_LED_STATE		1				//Канал статуса светодиода
+#define PARAM_NAME_LED_STATE		"led"
+#define PARAM_CHANAL_LED_UPDATE		3				//управления
+#define PARAM_NAME_LED_UPDATE		"LedUpdate"
+#define PARAM_NAME_VERSION			"version"		//Версия приложения
 
 typedef struct{
   uint8_t pos;

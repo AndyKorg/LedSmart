@@ -7,4 +7,4 @@
 
 #include "version.h"
 
-const version_app_t VERSION_APPLICATION = {{0,0,0,2}};
+const version_app_t VERSION_APPLICATION = {{VERSION_MAJOR_NUM, VERSION_MINOR_NUM, VERSION_PATCH_NUM, VERSION_BUILD_NUM}};
