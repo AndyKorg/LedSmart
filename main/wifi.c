@@ -131,13 +131,13 @@ void wifi_init(wifi_mode_t mode)
   xEventGroupSetBits(wifi_event_group, TCP_INIT);
 
   ESP_ERROR_CHECK(esp_wifi_set_mode(mode) );
-  wifi_config_t wifi_config = {.ap = {.ssid = AP_SSID_WATERCOUNT}};//»менно так инициализируетс€ им€ сети дл€ AP, если просто скопировать им€ в массив, то не работает, инициализаци€ происходит, но к сети никто подключитс€ не моежт
+  wifi_config_t wifi_config = {.ap = {.ssid = AP_SSID}};//»менно так инициализируетс€ им€ сети дл€ AP, если просто скопировать им€ в массив, то не работает, инициализаци€ происходит, но к сети никто подключитс€ не моежт
   if ((mode == WIFI_MODE_AP) || (mode == WIFI_MODE_APSTA)){
-    wifi_config.ap.ssid_len = strlen(AP_SSID_WATERCOUNT);
-    strcpy((char*)wifi_config.ap.password, AP_PASS_WATERCOUNT);
+    wifi_config.ap.ssid_len = strlen(AP_SSID);
+    strcpy((char*)wifi_config.ap.password, AP_PASS);
     wifi_config.ap.max_connection = AP_MAX_STA_CONN;
     wifi_config.ap.authmode = WIFI_AUTH_WPA2_PSK;
-    if (strlen(AP_PASS_WATERCOUNT) == 0) {
+    if (strlen(AP_PASS) == 0) {
 	  wifi_config.ap.authmode = WIFI_AUTH_OPEN;
     }
     ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_config));

@@ -12,8 +12,8 @@
 #include <stddef.h>
 #include "esp_wifi_types.h"
 
-#define AP_SSID_WATERCOUNT		"smartLamp"
-#define AP_PASS_WATERCOUNT		""			//Если пусто, то без пароля
+#define AP_SSID		"smartLamp"
+#define AP_PASS		""			//Если пусто, то без пароля
 #define OTA_CHECK_PERIOD_MIN	(24*60)		//Period checked update application, minute
 
 extern wifi_sta_config_t wifi_sta_param;
